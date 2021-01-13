@@ -11,3 +11,7 @@ keywords = ["async", "priority", "queue", "await", "wait"]
 
 [dependencies]
 futures = "0.3"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "time"] }
+rand = "0.8"

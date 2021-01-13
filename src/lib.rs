@@ -9,11 +9,14 @@ use futures::{
 };
 
 use std::{
-    iter::FusedIterator,
     collections::{BinaryHeap, VecDeque},
     future::Future,
+    iter::FusedIterator,
     pin::Pin,
-    sync::{Mutex, Arc, atomic::{AtomicBool, Ordering}},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     task::{Context, Poll, Waker},
 };
 
@@ -143,7 +146,11 @@ impl<'a, T: Ord> FusedFuture for PopFut<'a, T> {
 impl<'a, T> Drop for PopFut<'a, T> {
     fn drop(&mut self) {
         // We were woken but didn't receive anything, wake up another
-        if self.woken.take().map_or(false, |w| w.load(Ordering::Relaxed)) {
+        if self
+            .woken
+            .take()
+            .map_or(false, |w| w.load(Ordering::Relaxed))
+        {
             if let Some((w, woken)) = self.queue.inner.lock().unwrap().1.pop_front() {
                 woken.store(true, Ordering::Relaxed);
                 Waker::wake(w)
@@ -168,12 +175,15 @@ impl<'a, T: Ord> Stream for IncomingStream<'a, T> {
             Some(entry) => {
                 self.woken = None;
                 Poll::Ready(Some(entry))
-            },
+            }
             None => {
                 // Attempt to reuse the `Arc` to avoid an allocation, but don't do so at the risk of missing a wakup
                 let woken = match self.woken.clone() {
                     Some(mut woken) => match Arc::get_mut(&mut woken) {
-                        Some(w) => { *w.get_mut() = false; woken },
+                        Some(w) => {
+                            *w.get_mut() = false;
+                            woken
+                        }
                         None => Arc::new(AtomicBool::new(false)),
                     },
                     None => Arc::new(AtomicBool::new(false)),
@@ -195,11 +205,63 @@ impl<'a, T: Ord> FusedStream for IncomingStream<'a, T> {
 impl<'a, T> Drop for IncomingStream<'a, T> {
     fn drop(&mut self) {
         // We were woken but didn't receive anything, wake up another
-        if self.woken.take().map_or(false, |w| w.load(Ordering::Relaxed)) {
+        if self
+            .woken
+            .take()
+            .map_or(false, |w| w.load(Ordering::Relaxed))
+        {
             if let Some((w, woken)) = self.queue.inner.lock().unwrap().1.pop_front() {
                 woken.store(true, Ordering::Relaxed);
                 Waker::wake(w)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::prelude::*;
+    use std::collections::HashSet;
+
+    #[tokio::test]
+    async fn priority() {
+        let queue = PriorityQueue::<u32>::new();
+
+        let items = (0..100)
+            .map(|_| thread_rng().gen_range(0..1000))
+            .collect::<HashSet<_>>();
+
+        for &item in &items {
+            queue.push(item);
+        }
+
+        let mut items = items.into_iter().collect::<Vec<_>>();
+        items.sort();
+
+        for item in items.into_iter().rev() {
+            assert_eq!(queue.pop().await, item);
+        }
+    }
+
+    #[tokio::test]
+    async fn wake_on_drop() {
+        let queue = Arc::new(PriorityQueue::<u32>::new());
+
+        // Poll the future to register its waker
+        // Dropping the future *should* cause it to wake up the next future instead, meaning that...
+        let queue_ref = queue.clone();
+        let task = tokio::task::spawn(async move {
+            tokio::time::timeout(std::time::Duration::from_millis(250), queue_ref.pop()).await
+        });
+
+        let fut2 = queue.pop();
+
+        let _ = task.await;
+
+        queue.push(42);
+
+        // ...awaiting this future works
+        assert_eq!(fut2.await, 42);
     }
 }

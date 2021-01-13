@@ -11,9 +11,9 @@ An async-aware priority queue.
 ```rust
 let queue = PriorityQueue::new();
 
-queue.push(3);
-queue.push(1);
 queue.push(2);
+queue.push(1);
+queue.push(3);
 
 assert_eq!(queue.pop().await, 3);
 assert_eq!(queue.pop().await, 2);
