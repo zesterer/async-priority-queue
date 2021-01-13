@@ -1,6 +1,6 @@
 [package]
 name = "async-priority-queue"
-version = "0.1.0"
+version = "0.1.1"
 description = "An async-aware priority queue"
 authors = ["Joshua Barretto <joshua.s.barretto@gmail.com>"]
 license = "Apache-2.0"
