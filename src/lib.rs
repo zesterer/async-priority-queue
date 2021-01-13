@@ -58,7 +58,7 @@ impl<T: Ord> PriorityQueue<T> {
     /// not be one immediately available.
     ///
     /// Items are removed from the queue on a 'first come, first served' basis.
-    pub fn pop(&self) -> impl Future<Output = T> + FusedFuture + '_ {
+    pub fn pop(&self) -> PopFut<T> {
         PopFut {
             queue: self,
             terminated: false,
@@ -105,7 +105,7 @@ impl<T: Ord> PriorityQueue<T> {
 }
 
 /// A future representing an item to be removed from the priority queue.
-pub(crate) struct PopFut<'a, T> {
+pub struct PopFut<'a, T> {
     queue: &'a PriorityQueue<T>,
     terminated: bool,
     woken: Option<Arc<AtomicBool>>,
