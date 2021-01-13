@@ -1,0 +1,13 @@
+[package]
+name = "async-priority-queue"
+version = "0.1.0"
+description = "An async-aware priority queue"
+authors = ["Joshua Barretto <joshua.s.barretto@gmail.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/zesterer/async-priority-queue"
+readme = "README.md"
+edition = "2018"
+keywords = ["async", "priority", "queue", "await", "wait"]
+
+[dependencies]
+futures = "0.3"
